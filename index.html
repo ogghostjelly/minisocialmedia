@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ogghostjelly's social media</title>
+    <style>
+        html {
+            font-family: 'Courier New', Courier, monospace;
+            color: white;
+            background-color: black;
+        }
+    </style>
+    <script>
+        async function pass2hash(passwd) {
+            return Array.from(
+                new TextEncoder().encode("ogjsocialmedia" + passwd).map(x => x ^ x),
+                (byte) => byte.toString(16).padStart(2, '0')
+            ).join('');
+        }
+    </script>
+</head>
+
+<body>
+    <p style="color: greenyellow; position: absolute;" id="login-resp"></p>
+    <div id="login-form">
+        <label for="uname">Username:</label>
+        <input type="text" id="uname" name="uname"><br><br>
+        <label for="passwd">Unsecurely stored password:</label>
+        <input type="password" id="passwd" name="passwd"><br><br>
+        <input onclick="login()" type="submit" value="Login">
+    </div>
+
+    <script>
+        account = null
+
+        async function login() {
+            const form = document.getElementById("login-form")
+            const resp = document.getElementById("login-resp")
+            const uname = document.getElementById("uname").value
+            const passwd = document.getElementById("passwd").value
+            const postButton = document.getElementById("post-button")
+
+            if (uname.length < 3 || uname.length > 30) {
+                return alert("Username has to be between 3 and 30 characters.")
+            }
+            if (passwd.length == 0) {
+                return alert("Password is empty.")
+            }
+
+            username = uname
+            password = await pass2hash(passwd)
+
+            let json = await fetch("/login", {
+                signal: AbortSignal.timeout(5000),
+                method: 'POST',
+                body: JSON.stringify({ username, password }),
+            }).then((res) => res.json()).catch(() => ({ error: 'Failed to connect to the server.' }));
+
+            if (json.error) {
+                alert(json.error);
+            } else if (json.success) {
+                resp.textContent = `You are now logged in as ${uname}`
+                form.style.visibility = 'hidden'
+                postButton.disabled = false
+                account = { username, password }
+                alert(json.success);
+            }
+        }
+    </script>
+
+    <hr>
+
+    <div id="post-form">
+        <textarea style="resize: none; width: 400px; height: 100px;" id="postbox" name="postbox"></textarea><br><br>
+        <input disabled id="post-button" onclick="post()" type="submit" value="Post">
+    </div>
+
+    <script>
+        async function post() {
+            const postbox = document.getElementById("postbox")
+
+            if (account == null) {
+                return alert("You are not logged in.")
+            }
+            if (postbox.value.length == 0) {
+                return alert("Post is empty.")
+            }
+
+            let json = await fetch("/post", {
+                signal: AbortSignal.timeout(5000),
+                method: 'POST',
+                body: JSON.stringify({ account, text: postbox.value }),
+            }).then((res) => res.json()).catch(() => ({ error: 'Failed to connect to the server.' }));
+
+            if (json.error) {
+                alert(json.error);
+            } else if (json.success) {
+                postbox.value = ''
+                alert(json.success);
+                await updatePosts()
+            }
+        }
+    </script>
+
+    <hr>
+
+    <o-template style="display: none;" id="post-template">
+        <li>
+            <o-username></o-username> - <o-text></o-text> (<o-date></o-date>)
+        </li>
+    </o-template>
+
+    <p>Refreshes in <span id="refresh-time">?</span>...</p>
+
+    <ul id="posts">
+    </ul>
+
+    <script>
+        async function updatePosts() {
+            const posts = document.getElementById("posts")
+            const template = document.getElementById("post-template").firstElementChild
+
+            let postsData = await fetch("/posts.json", {
+                signal: AbortSignal.timeout(5000)
+            }).then((res) => res.json()).catch(() => alert('Failed to connect to the server.'));
+            postsData.reverse()
+
+            const newChildren = []
+
+            postsData.forEach(post => {
+                elem = template.cloneNode(true)
+                elem.getElementsByTagName("o-text")[0].textContent = post[0]
+                elem.getElementsByTagName("o-username")[0].textContent = post[1]
+                elem.getElementsByTagName("o-date")[0].textContent = post[2]
+                newChildren.push(elem)
+            });
+
+            posts.replaceChildren(...newChildren)
+        }
+
+        lastUpdate = -Infinity
+
+        async function animationFrame(time) {
+            const refreshTime = document.getElementById("refresh-time")
+
+            delta = time - lastUpdate
+            if (delta >= 10_000) {
+                lastUpdate = time
+                await updatePosts()
+            }
+            refreshTime.textContent = Math.ceil((10_000 - delta) / 1000)
+            requestAnimationFrame(animationFrame)
+        }; requestAnimationFrame(animationFrame);
+    </script>
+</body>
+
+</html>
