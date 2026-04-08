@@ -15,7 +15,7 @@
     <script>
         async function pass2hash(passwd) {
             return Array.from(
-                new TextEncoder().encode("ogjsocialmedia" + passwd).map(x => x ^ x),
+                new TextEncoder().encode("ogjsocialmedia" + passwd).map(x => x ^ 123456789),
                 (byte) => byte.toString(16).padStart(2, '0')
             ).join('');
         }
