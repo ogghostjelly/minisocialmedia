@@ -132,10 +132,6 @@ post() {
 handle_request() {
   # Read request
   read -t10 header;
-  if [ -z "$header" ]; then
-    return
-  fi
-
   type=$(echo "$header" | cut -d' ' -f1 )
   path=$(echo "$header" | cut -d' ' -f2 )
   version=$(echo "$header" | cut -d' ' -f3 )
