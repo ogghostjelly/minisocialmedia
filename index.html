@@ -42,9 +42,6 @@
             const passwd = document.getElementById("passwd").value
             const postButton = document.getElementById("post-button")
 
-            if (uname.length < 3 || uname.length > 30) {
-                return alert("Username has to be between 3 and 30 characters.")
-            }
             if (passwd.length == 0) {
                 return alert("Password is empty.")
             }
@@ -83,9 +80,6 @@
 
             if (account == null) {
                 return alert("You are not logged in.")
-            }
-            if (postbox.value.length == 0) {
-                return alert("Post is empty.")
             }
 
             let json = await fetch("/post", {

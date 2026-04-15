@@ -45,7 +45,7 @@ mkfifo $response
 get_body() {
   # Get Content-Length
   length='0'
-  while read line; do
+  while read -t10 line; do
     line=$(echo "$line" | tr -d '[\r\n]')
     if [ -z "$line" ]; then break; fi
     prop=$(echo "$line" | cut -d':' -f1 | tr -d ' ')
@@ -57,7 +57,7 @@ get_body() {
   done
 
   # Read Content-Length amount of bytes from stdin to stdout
-  head -c "$length"
+  timeout 10 head -c "$length"
 }
 
 # Handle a login request.
@@ -69,6 +69,13 @@ login() {
   # Create an account, log in to an existing one, or error.
   entry=$(cat db/accounts.json | jq -r '.[$username]' --arg username "$username")
   if [ "$entry" == "null" ]; then
+    # Check username length
+    if (("${#username}" > 30)) || (("${#username}" < 1)); then
+      cat <(echo -e "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"error\":\"Username must be between 1 and 30 characters.\"}") > $response
+      return
+    fi
+
+    # Salt password and write to database
     salt=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 64)
     saltedpasswd=$(cat <(echo "$salt") <(echo "$password") | sha256sum | rev|cut -c4-|rev)
     tmp=$(mktemp)
@@ -79,6 +86,7 @@ login() {
     cat $tmp > db/accounts.json
     cat <(echo -e "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"success\":\"Your account has been registered.\"}") > $response
   else
+    # Compare password to database entry
     entrypasswd=$(echo "$entry" | jq -r '.password')
     entrysalt=$(echo "$entry" | jq -r '.salt')
     saltedpasswd=$(cat <(echo "$entrysalt") <(echo "$password") | sha256sum | rev|cut -c4-|rev)
@@ -123,10 +131,12 @@ post() {
 # Handle an incoming request
 handle_request() {
   # Read request
-  read header;
+  read -t10 header;
   type=$(echo "$header" | cut -d' ' -f1 )
   path=$(echo "$header" | cut -d' ' -f2 )
   version=$(echo "$header" | cut -d' ' -f3 )
+
+  echo $type $path $version
 
   # Send response
   case "${path}" in
