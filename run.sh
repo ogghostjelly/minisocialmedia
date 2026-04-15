@@ -136,7 +136,7 @@ handle_request() {
   path=$(echo "$header" | cut -d' ' -f2 )
   version=$(echo "$header" | cut -d' ' -f3 )
 
-  echo $type $path $version
+  echo "$type" "$path" "$version"
 
   # Send response
   case "${path}" in
